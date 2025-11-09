@@ -729,6 +729,97 @@
 /* === iPad fullscreen & minimap layers === */
 #minimap-canvas-static, #minimap-canvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; image-rendering: optimizeSpeed; }
 
+        /* ----- iPad fullscreen & D-pad controls (added for touch UI) ----- */
+        html, body, #game-container, #ui-container { height: 100dvh; }
+        @supports (height: 100svh) {
+          html, body, #game-container, #ui-container { height: 100svh; }
+        }
+        body, #ui-container {
+          padding-top: env(safe-area-inset-top, 0);
+          padding-right: env(safe-area-inset-right, 0);
+          padding-bottom: env(safe-area-inset-bottom, 0);
+          padding-left: env(safe-area-inset-left, 0);
+        }
+        html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+        #game-container, canvas, #ui-container { touch-action: none; }
+        button { touch-action: manipulation; }
+
+        /* Fullscreen control button */
+        #fullscreen-button{
+          position: fixed; top: 20px; right: 80px;
+          width: 44px; height: 44px;
+          border-radius: 50%;
+          background-color: rgba(255,255,255,0.9);
+          border: 2px solid var(--primary-color);
+          font-size: 20px; cursor: pointer;
+          z-index: 21;
+          pointer-events: auto;
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          transition: transform .2s;
+        }
+        #fullscreen-button:hover { transform: scale(1.08); }
+
+        /* Touch D-pad controls */
+        #touch-controls {
+          position: fixed;
+          left: 0; right: 0;
+          bottom: calc(3vh + env(safe-area-inset-bottom,0));
+          display: none;
+          justify-content: space-between;
+          align-items: flex-end;
+          padding: 0 3vw;
+          z-index: 22;
+          pointer-events: auto;
+        }
+        #touch-controls[data-visible="true"] { display: flex; }
+        .dpad {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+          gap: 12px;
+        }
+        .btn-round, .btn-big {
+          min-width: 64px;
+          min-height: 64px;
+          border-radius: 14px;
+          border: none;
+          font-size: 22px;
+          font-weight: 700;
+          cursor: pointer;
+          background: rgba(255,255,255,0.9);
+          border: 2px solid var(--primary-color);
+          box-shadow: 0 4px 12px rgba(0,0,0,.15);
+        }
+        .btn-big {
+          min-width: 120px;
+          grid-column: 1 / span 3;
+        }
+        #btn-left { grid-column: 1; }
+        #btn-right { grid-column: 3; }
+        #btn-back { grid-column: 2; }
+        #controls-right {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          align-items: flex-end;
+        }
+        #control-swap {
+          width: 44px; height: 44px;
+          border-radius: 50%;
+          background: rgba(255,255,255,.9);
+          border: 2px solid var(--primary-color);
+          font-size: 18px;
+        }
+        /* Left-handed mode: swap D-pad and right controls */
+        #touch-controls[data-left-handed="true"] .dpad { order: 2; }
+        #touch-controls[data-left-handed="true"] #controls-right { order: 1; }
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+          .btn-round, .btn-big { min-width: 56px; min-height: 56px; font-size: 20px; }
+          .btn-big { min-width: 100px; }
+        }
+
 </style>
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -781,6 +872,19 @@
     <button id="show-minimap-btn">🗺️</button>
     
     <button id="settings-button">⚙️</button>
+    <!-- Fullscreen & touch controls for iPad -->
+    <button id="fullscreen-button" aria-label="全屏">⛶</button>
+    <div id="touch-controls" data-visible="false" data-left-handed="false">
+      <div class="dpad" aria-label="方向控制">
+        <button id="btn-left" class="btn-round" aria-label="左转">↺</button>
+        <button id="btn-right" class="btn-round" aria-label="右转">↻</button>
+        <button id="btn-back" class="btn-round" aria-label="后退">↓</button>
+        <button id="btn-forward" class="btn-big" aria-label="前进">↑</button>
+      </div>
+      <div id="controls-right">
+        <button id="control-swap" title="左右手切换">⇄</button>
+      </div>
+    </div>
 
     <div id="startup-modal" class="modal-overlay">
         <div class="modal-content">
@@ -843,6 +947,22 @@
                 <select id="helper-text-toggle">
                     <option value="on" data-lang-zh="开启" data-lang-en="On">开启</option>
                     <option value="off" data-lang-zh="关闭" data-lang-en="Off">关闭</option>
+                </select>
+            </div>
+
+            <!-- Added: Control mode and left-hand mode settings for iPad gesture and D-pad -->
+            <div class="settings-group">
+                <label for="control-mode-select" data-lang-zh="操作方式" data-lang-en="Controls">操作方式</label>
+                <select id="control-mode-select">
+                    <option value="dpad" data-lang-zh="虚拟按键" data-lang-en="D-pad">虚拟按键</option>
+                    <option value="swipe" data-lang-zh="滑动手势" data-lang-en="Swipe">滑动手势</option>
+                </select>
+            </div>
+            <div class="settings-group">
+                <label for="left-hand-toggle" data-lang-zh="左手模式" data-lang-en="Left-handed">左手模式</label>
+                <select id="left-hand-toggle">
+                    <option value="off" data-lang-zh="关闭" data-lang-en="Off">关闭</option>
+                    <option value="on" data-lang-zh="开启" data-lang-en="On">开启</option>
                 </select>
             </div>
              
@@ -1037,6 +1157,8 @@
                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
             }
         }
+        
+
     </script>
     <script type="module">
         import * as THREE from 'three';
@@ -1111,6 +1233,122 @@
         // Texture customization variables
         let textureURLs = { floor: null, wallN: null, wallS: null, wallE: null, wallW: null };
         let textureScales = { floor: 1, wall: 1 };
+
+        // --------------------------------------------------------------------
+        // iPad fullscreen & touch control state
+        // --------------------------------------------------------------------
+        // When using on tablets, we support a fullscreen mode, wake lock and on-screen controls.
+        let wakeLockSentinel = null;
+        // Control mode: 'dpad' for on-screen D-pad; 'swipe' for gesture controls.
+        let controlMode = 'dpad';
+        // Left-handed layout: toggles the order of the D-pad and extra controls.
+        let leftHanded = false;
+        // Helper for continuous action on long press.
+        const autoRepeat = { timer: null, delay: 260 };
+
+        // Helper to request fullscreen on supported browsers (iOS Safari 16+)
+        async function toggleFullscreen(){
+          const root = document.documentElement;
+          try {
+            if (document.fullscreenElement) {
+              await document.exitFullscreen();
+            } else if (root.requestFullscreen) {
+              await root.requestFullscreen();
+              if (screen.orientation && screen.orientation.lock) {
+                try { await screen.orientation.lock('landscape'); } catch(e) {}
+              }
+            }
+          } catch(e) { console.warn('Fullscreen error:', e); }
+        }
+        // Helper to request screen wake lock
+        async function requestWakeLock(){
+          try {
+            if ('wakeLock' in navigator && !wakeLockSentinel) {
+              wakeLockSentinel = await navigator.wakeLock.request('screen');
+              wakeLockSentinel.addEventListener('release', ()=>{ wakeLockSentinel = null; });
+              document.addEventListener('visibilitychange', async ()=>{
+                if (document.visibilityState === 'visible' && !wakeLockSentinel) {
+                  try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch(_) {}
+                }
+              });
+            }
+          } catch(e){ console.info('WakeLock not granted:', e.message); }
+        }
+        // Release screen wake lock if held
+        function releaseWakeLock(){
+          try { wakeLockSentinel?.release(); } catch(_) {}
+          wakeLockSentinel = null;
+        }
+        // Show or hide the touch control overlay
+        function setTouchControlsVisible(v){
+          const tc = document.getElementById('touch-controls');
+          if (tc) tc.dataset.visible = v ? 'true' : 'false';
+        }
+        // Update left-hand layout dataset
+        function updateControlLayout(){
+          const tc = document.getElementById('touch-controls');
+          if (tc) tc.dataset.leftHanded = leftHanded ? 'true' : 'false';
+        }
+        // D-pad actions: rotate or move player. They reuse existing game logic.
+        function turnLeft(){
+          if (gameState === 'AT_INTERSECTION'){ targetRotation.y += Math.PI/2; gameState='TURNING'; }
+        }
+        function turnRight(){
+          if (gameState === 'AT_INTERSECTION'){ targetRotation.y -= Math.PI/2; gameState='TURNING'; }
+        }
+        function goForward(){
+          if (gameState === 'AT_INTERSECTION') setupMove(1);
+        }
+        function goBackward(){
+          if (gameState === 'AT_INTERSECTION') setupMove(-1);
+        }
+        // Start and stop auto-repeat for long press on D-pad buttons
+        function startAutoRepeat(action){
+          action();
+          clearInterval(autoRepeat.timer);
+          autoRepeat.timer = setInterval(()=>{ action(); }, autoRepeat.delay);
+        }
+        function stopAutoRepeat(){
+          clearInterval(autoRepeat.timer);
+          autoRepeat.timer = null;
+        }
+        // Swipe gesture handling for swipe control mode
+        let swipeStart = null;
+        function onSwipeStart(e){
+          // Always capture swipe start on touch devices.  Prevent default to
+          // avoid the browser interpreting the gesture as a scroll or zoom.
+          if (e && e.preventDefault) e.preventDefault();
+          const t = e.changedTouches ? e.changedTouches[0] : e;
+          swipeStart = { x: t.clientX, y: t.clientY, t: Date.now() };
+        }
+        function onSwipeEnd(e){
+          // If no swipe start was recorded, ignore.
+          if (!swipeStart) return;
+          if (e && e.preventDefault) e.preventDefault();
+          const t = e.changedTouches ? e.changedTouches[0] : e;
+          const dx = t.clientX - swipeStart.x;
+          const dy = t.clientY - swipeStart.y;
+          const ax = Math.abs(dx), ay = Math.abs(dy);
+          const TH = 50;
+          if (ax < TH && ay < TH) { swipeStart = null; return; }
+          // Horizontal vs vertical swipe determines action.  Always respond,
+          // regardless of controlMode, so that gestures work alongside the
+          // on‑screen D‑pad on touch devices.
+          if (ax > ay) {
+            if (dx > 0) {
+              turnRight();
+            } else {
+              turnLeft();
+            }
+          } else {
+            if (dy < 0) {
+              goForward();
+            } else {
+              goBackward();
+            }
+          }
+          swipeStart = null;
+        }
 
         // ====================================================================
         // 语言翻译数据 (Language Translation Data)
@@ -1492,6 +1730,84 @@ arrow3pToggle?.addEventListener('change', (e) => {
     arrowHintsEnabled['3P'] = (e.target.value === 'on');
     if (gameState === 'AT_INTERSECTION') checkForTurns();
 });
+
+            // ------------------------------------------------------------------
+            // Touch controls & fullscreen bindings (iPad UI)
+            // Bind fullscreen toggle
+            const fullscreenBtn = document.getElementById('fullscreen-button');
+            if (fullscreenBtn) {
+              fullscreenBtn.addEventListener('click', toggleFullscreen);
+            }
+            // Setup auto-repeat for on-screen D-pad buttons
+            const bindHold = (el, action) => {
+              if (!el) return;
+              // Support both pointer and touch events.  On iOS/Safari the
+              // Pointer Events API is not always enabled, so we register
+              // equivalent touch handlers.  Use passive:false to enable
+              // preventDefault() on touches, which stops them from
+              // generating subsequent synthetic mouse events.
+              el.addEventListener('pointerdown', () => {
+                startAutoRepeat(action);
+              });
+              el.addEventListener('pointerup', () => {
+                stopAutoRepeat();
+              });
+              el.addEventListener('pointercancel', () => {
+                stopAutoRepeat();
+              });
+              el.addEventListener('pointerleave', () => {
+                stopAutoRepeat();
+              });
+              // Touch fallback for iOS devices where pointer events may not fire
+              el.addEventListener('touchstart', (evt) => {
+                evt.preventDefault();
+                startAutoRepeat(action);
+              }, {passive: false});
+              el.addEventListener('touchend', (evt) => {
+                evt.preventDefault();
+                stopAutoRepeat();
+              }, {passive: false});
+              el.addEventListener('touchcancel', (evt) => {
+                evt.preventDefault();
+                stopAutoRepeat();
+              }, {passive: false});
+            };
+            bindHold(document.getElementById('btn-left'),   turnLeft);
+            bindHold(document.getElementById('btn-right'),  turnRight);
+            bindHold(document.getElementById('btn-forward'), goForward);
+            bindHold(document.getElementById('btn-back'),    goBackward);
+            // Swap left/right layout
+            const swapBtn = document.getElementById('control-swap');
+            if (swapBtn) {
+              swapBtn.addEventListener('click', () => {
+                leftHanded = !leftHanded;
+                updateControlLayout();
+              });
+            }
+            // Bind swipe gestures on the UI container for swipe control mode
+            const swipeArea = document.getElementById('ui-container');
+            if (swipeArea) {
+              swipeArea.addEventListener('touchstart', onSwipeStart, { passive: false });
+              swipeArea.addEventListener('touchend',   onSwipeEnd, { passive: false });
+              swipeArea.addEventListener('pointerdown', onSwipeStart);
+              swipeArea.addEventListener('pointerup',   onSwipeEnd);
+            }
+            // Listen for control mode and left-hand toggle changes from settings
+            const ctrlModeSelect = document.getElementById('control-mode-select');
+            if (ctrlModeSelect) {
+              ctrlModeSelect.addEventListener('change', (e) => {
+                controlMode = e.target.value;
+                const showPad = (controlMode === 'dpad');
+                setTouchControlsVisible(showPad && ['AT_INTERSECTION','DRIVING','TURNING'].includes(gameState));
+              });
+            }
+            const leftToggle = document.getElementById('left-hand-toggle');
+            if (leftToggle) {
+              leftToggle.addEventListener('change', (e) => {
+                leftHanded = (e.target.value === 'on');
+                updateControlLayout();
+              });
+            }
 
 document.getElementById('settings-button').addEventListener('click', () => {
                 document.getElementById('settings-panel').style.display = 'flex';
@@ -3202,6 +3518,54 @@ function createDirectionalHelpers() {
         // 启动 (Boot)
         // ====================================================================
         init();
+
+        // --------------------------------------------------------------------
+        // Wrap core functions to integrate touch control visibility and wake lock
+        // --------------------------------------------------------------------
+        // Override updateChoicePrompt to update D-pad button states and visibility
+        const _origUpdateChoicePrompt = updateChoicePrompt;
+        updateChoicePrompt = function(availableTurns){
+          _origUpdateChoicePrompt(availableTurns);
+          if (controlMode === 'dpad') {
+            const showPad = ['AT_INTERSECTION','DRIVING','TURNING'].includes(gameState);
+            setTouchControlsVisible(showPad);
+            const fBtn = document.getElementById('btn-forward');
+            const lBtn = document.getElementById('btn-left');
+            const rBtn = document.getElementById('btn-right');
+            const bBtn = document.getElementById('btn-back');
+            if (fBtn && lBtn && rBtn && bBtn && availableTurns) {
+              fBtn.disabled = !availableTurns.forward;
+              lBtn.disabled = !availableTurns.left;
+              rBtn.disabled = !availableTurns.right;
+              bBtn.disabled = false;
+            }
+          }
+        };
+        // Override loadLevel to request wake lock and show D-pad on new level
+        const _origLoadLevelRef = loadLevel;
+        loadLevel = function(levelData){
+          _origLoadLevelRef(levelData);
+          requestWakeLock();
+          const showPad = (controlMode === 'dpad');
+          setTouchControlsVisible(showPad);
+        };
+        // Override showMainMenu to release wake lock and hide D-pad
+        const _origShowMainMenuRef = showMainMenu;
+        showMainMenu = function(){
+          releaseWakeLock();
+          setTouchControlsVisible(false);
+          _origShowMainMenuRef();
+        };
+        // Override togglePauseMenu to hide D-pad when paused and show when resumed
+        const _origTogglePauseMenuRef = togglePauseMenu;
+        togglePauseMenu = function(){
+          const willPause = (document.getElementById('pause-menu-modal').style.display !== 'flex');
+          if (willPause) setTouchControlsVisible(false);
+          _origTogglePauseMenuRef();
+          if (!willPause && controlMode === 'dpad' && ['AT_INTERSECTION','DRIVING','TURNING'].includes(gameState)) {
+            setTouchControlsVisible(true);
+          }
+        };
 
     </script>
 </body>
