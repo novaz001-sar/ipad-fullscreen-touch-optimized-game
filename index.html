@@ -820,6 +820,16 @@
           .btn-big { min-width: 100px; }
         }
 
+
+/* === iPad Safari fullscreen + safe area + touch handling === */
+html, body { height: 100%; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+body { user-select: none; -webkit-user-select: none; }
+#game-container { height: var(--app-height, 100vh); touch-action: none; }
+#ui-container   { height: var(--app-height, 100vh); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+@supports (height: 100dvh) {
+  #game-container, #ui-container { height: 100dvh; }
+}
+
 </style>
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1363,7 +1373,7 @@
                 turnLeft: "向左",
                 turnRight: "向右",
                 turnAround: "掉头",
-                helperText: "按 A/D 转向, W 前进",
+                helperText: "手势：左右滑动转向，上滑前进，下滑后退",
                 level: "关卡",
                 confirmReset: "您确定要重置所有游戏数据吗？此操作无法撤销。",
                 editor_need_start: "地图需要一个起点。",
@@ -1395,7 +1405,7 @@
                 turnLeft: "Turn Left",
                 turnRight: "Turn Right",
                 turnAround: "Turn Around",
-                helperText: "Use A/D to turn, W to move",
+                helperText: "Gestures: swipe left/right to turn, up to move, down to reverse",
                 level: "Level",
                 confirmReset: "Are you sure you want to reset all game data? This action cannot be undone.",
                 editor_need_start: "Map needs a starting point.",
@@ -1456,9 +1466,84 @@
         // ====================================================================
         // 初始化函数 (Initialization)
         // ====================================================================
+
+        // --- iPad/Safari viewport height fix ---
+        function setAppHeight() {
+            const vh = window.innerHeight;
+            document.documentElement.style.setProperty('--app-height', vh + 'px');
+        }
+
+
+        // --- Touch gesture controls (swipe) for iPad Safari ---
+        function setupGestures() {
+            const gestureTarget = document.getElementById('game-container');
+            let sx = 0, sy = 0, st = 0;
+            const THRESHOLD = 30;   // px
+            const MAX_TIME  = 700;  // ms
+
+            // Use passive:false so we can preventDefault() to stop page scroll
+            gestureTarget.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                const t = e.touches[0];
+                sx = t.clientX; sy = t.clientY; st = performance.now();
+            }, { passive: true });
+
+            gestureTarget.addEventListener('touchmove', (e) => {
+                if (e.touches.length !== 1) return;
+                const t = e.touches[0];
+                const dx = t.clientX - sx;
+                const dy = t.clientY - sy;
+                // if user is clearly swiping, prevent scroll
+                if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                    if (e.cancelable) e.preventDefault();
+                }
+            }, { passive: false });
+
+            gestureTarget.addEventListener('touchend', (e) => {
+                if (!e.changedTouches || e.changedTouches.length !== 1) return;
+                const t = e.changedTouches[0];
+                const dt = performance.now() - st;
+                const dx = t.clientX - sx;
+                const dy = t.clientY - sy;
+                const adx = Math.abs(dx), ady = Math.abs(dy);
+                if (dt > MAX_TIME || (adx < THRESHOLD && ady < THRESHOLD)) return;
+
+                // BIG_MAP: swipe up to start driving (cancel click-to-start)
+                if (gameState === 'BIG_MAP') {
+                    if (dy < -THRESHOLD) {
+                        const minimapContainer = document.getElementById('minimap-container');
+                        const bigMapViewModal = document.getElementById('big-map-view-modal');
+                        bigMapViewModal.style.display = 'none';
+                        document.body.appendChild(minimapContainer); 
+                        minimapContainer.classList.remove('big-map');
+                        minimapContainer.classList.add('small-map');
+                        gameState = 'AT_INTERSECTION';
+                        checkForTurns();
+                        showIngameHint('hint_driving_start');
+                    }
+                    return;
+                }
+
+                // AT_INTERSECTION: swipe to drive/turn
+                if (gameState === 'AT_INTERSECTION' && !keyDebounce) {
+                    keyDebounce = true; setTimeout(() => keyDebounce = false, 100);
+                    if (adx > ady) {
+                        // horizontal -> turn
+                        if (dx > 0) { targetRotation.y -= Math.PI / 2; gameState = 'TURNING'; }
+                        else        { targetRotation.y += Math.PI / 2; gameState = 'TURNING'; }
+                    } else {
+                        // vertical -> move
+                        if (dy < 0) { setupMove(1); } else { setupMove(-1); }
+                    }
+                }
+            }, { passive: true });
+        }
+
+
         
         async function init() {
-            scene = new THREE.Scene();
+            setAppHeight();
+scene = new THREE.Scene();
             
             function setupSkyBackground(){
               if (location.protocol === 'file:') {
@@ -1483,7 +1568,7 @@
             scene.fog = new THREE.Fog(0x87ceeb, TILE_SIZE * 7, TILE_SIZE * 28);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
             renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(document.getElementById('game-container').clientWidth, document.getElementById('game-container').clientHeight);
             renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
             document.getElementById('game-container').appendChild(renderer.domElement);
             
@@ -1549,11 +1634,13 @@ hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
             loadCustomLevels();
 
             window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('orientationchange', onWindowResize, false);
             setupMinimapCanvas();
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
             
             setupUI();
+            setupGestures();
             updateUIText();
             createStarField();
             setupMinimapCanvas();
@@ -2439,10 +2526,13 @@ function setupMove(dir = 1) {
         }
 
         function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            setAppHeight();
+            const gc = document.getElementById('game-container');
+            const w = gc.clientWidth, h = gc.clientHeight;
+            camera.aspect = w / h;
             setupMinimapCanvas();
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(w, h, false);
         }
 
         // ====================================================================
