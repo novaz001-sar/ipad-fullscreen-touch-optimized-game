@@ -60,19 +60,21 @@
 
         /* --- New View Toggle Styles (v10.0) --- */
         #view-toggle-container {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + 12px);
+            right: calc(env(safe-area-inset-right, 0px) + 12px);
+            left: auto;
+            transform: none;
             background-color: rgba(255, 255, 255, 0.9);
             border-radius: 25px;
             padding: 5px;
             display: flex;
-            z-index: 15;
+            z-index: 220;
             pointer-events: auto;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border: 1px solid rgba(0, 123, 255, 0.3);
         }
+
         .view-toggle-btn {
             padding: 10px 20px;
             border: none;
@@ -631,7 +633,7 @@
             background-color: rgba(255, 255, 255, 0.85);
             padding: 15px;
             border-radius: 12px;
-            z-index: 15;
+            z-index: 221;
             pointer-events: auto;
             display: none; /* Hidden by default, shown via JS */
             flex-direction: column;
@@ -773,13 +775,15 @@
           pointer-events: auto;
         }
         #touch-controls[data-visible="true"] { display: flex; }
-        .dpad {
+        .dpad-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
+          grid-template-columns: repeat(3, min(72px, 12vmin));
+          grid-template-rows: repeat(3, min(72px, 12vmin));
           gap: 12px;
+          align-items: center;
+          justify-items: center;
         }
-        .btn-round, .btn-big {
+        .btn-round {
           min-width: 64px;
           min-height: 64px;
           border-radius: 14px;
@@ -789,15 +793,12 @@
           cursor: pointer;
           background: rgba(255,255,255,0.9);
           border: 2px solid var(--primary-color);
-          box-shadow: 0 4px 12px rgba(0,0,0,.15);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        .btn-big {
-          min-width: 120px;
-          grid-column: 1 / span 3;
-        }
-        #btn-left { grid-column: 1; }
-        #btn-right { grid-column: 3; }
-        #btn-back { grid-column: 2; }
+        #btn-up { grid-area: 1 / 2; }
+        #btn-left { grid-area: 2 / 1; }
+        #btn-right { grid-area: 2 / 3; }
+        #btn-down { grid-area: 3 / 2; }
         #controls-right {
           display: flex;
           flex-direction: column;
@@ -807,20 +808,17 @@
         #control-swap {
           width: 44px; height: 44px;
           border-radius: 50%;
-          background: rgba(255,255,255,.9);
+          background: rgba(255,255,255,0.9);
           border: 2px solid var(--primary-color);
           font-size: 18px;
         }
         /* Left-handed mode: swap D-pad and right controls */
-        #touch-controls[data-left-handed="true"] .dpad { order: 2; }
+        #touch-controls[data-left-handed="true"] .dpad-grid { order: 2; }
         #touch-controls[data-left-handed="true"] #controls-right { order: 1; }
         /* Responsive adjustments */
         @media (max-width: 900px) {
-          .btn-round, .btn-big { min-width: 56px; min-height: 56px; font-size: 20px; }
-          .btn-big { min-width: 100px; }
+          .btn-round { min-width: 56px; min-height: 56px; font-size: 20px; }
         }
-
-
 /* === iPad Safari fullscreen + safe area + touch handling === */
 html, body { height: 100%; -webkit-tap-highlight-color: rgba(0,0,0,0); }
 body { user-select: none; -webkit-user-select: none; }
@@ -830,6 +828,15 @@ body { user-select: none; -webkit-user-select: none; }
   #game-container, #ui-container { height: 100dvh; }
 }
 
+
+/* === iPad landscape overrides === */
+@media (orientation: landscape) and (pointer: coarse) {
+  #view-toggle-container { top: calc(env(safe-area-inset-top,0) + 12px); right: calc(env(safe-area-inset-right,0) + 12px); left: auto; transform: none; z-index: 220; }
+  #third-person-controls { position: fixed; top: calc(env(safe-area-inset-top,0) + 64px); right: calc(env(safe-area-inset-right,0) + 12px); left: auto; transform: none; }
+  #minimap-container.small-map { top: calc(env(safe-area-inset-top,0) + 16px); right: calc(env(safe-area-inset-right,0) + 16px); }
+  #bottom-hud { bottom: calc(env(safe-area-inset-bottom,0) + 2vh); }
+  #touch-controls { bottom: calc(env(safe-area-inset-bottom,0) + 1.5vh); }
+}
 </style>
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -885,16 +892,17 @@ body { user-select: none; -webkit-user-select: none; }
     <!-- Fullscreen & touch controls for iPad -->
     <button id="fullscreen-button" aria-label="全屏">⛶</button>
     <div id="touch-controls" data-visible="false" data-left-handed="false">
-      <div class="dpad" aria-label="方向控制">
-        <button id="btn-left" class="btn-round" aria-label="左转">↺</button>
-        <button id="btn-right" class="btn-round" aria-label="右转">↻</button>
-        <button id="btn-back" class="btn-round" aria-label="后退">↓</button>
-        <button id="btn-forward" class="btn-big" aria-label="前进">↑</button>
+      <div class="dpad-grid" aria-label="方向控制">
+        <button id="btn-up" class="btn-round" aria-label="上">↑</button>
+        <button id="btn-left" class="btn-round" aria-label="左">←</button>
+        <button id="btn-right" class="btn-round" aria-label="右">→</button>
+        <button id="btn-down" class="btn-round" aria-label="下">↓</button>
       </div>
       <div id="controls-right">
         <button id="control-swap" title="左右手切换">⇄</button>
       </div>
     </div>
+
 
     <div id="startup-modal" class="modal-overlay">
         <div class="modal-content">
@@ -1861,8 +1869,8 @@ arrow3pToggle?.addEventListener('change', (e) => {
             };
             bindHold(document.getElementById('btn-left'),   turnLeft);
             bindHold(document.getElementById('btn-right'),  turnRight);
-            bindHold(document.getElementById('btn-forward'), goForward);
-            bindHold(document.getElementById('btn-back'),    goBackward);
+            bindHold(document.getElementById('btn-up'), goForward);
+            bindHold(document.getElementById('btn-down'),    goBackward);
             // Swap left/right layout
             const swapBtn = document.getElementById('control-swap');
             if (swapBtn) {
@@ -3619,10 +3627,10 @@ function createDirectionalHelpers() {
           if (controlMode === 'dpad') {
             const showPad = ['AT_INTERSECTION','DRIVING','TURNING'].includes(gameState);
             setTouchControlsVisible(showPad);
-            const fBtn = document.getElementById('btn-forward');
+            const fBtn = document.getElementById('btn-up');
             const lBtn = document.getElementById('btn-left');
             const rBtn = document.getElementById('btn-right');
-            const bBtn = document.getElementById('btn-back');
+            const bBtn = document.getElementById('btn-down');
             if (fBtn && lBtn && rBtn && bBtn && availableTurns) {
               fBtn.disabled = !availableTurns.forward;
               lBtn.disabled = !availableTurns.left;
